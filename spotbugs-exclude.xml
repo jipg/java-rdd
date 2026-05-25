@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- =============================================================================
+     spotbugs-exclude.xml — SpotBugs Exclusion Filter
+     =============================================================================
+     WHY THIS FILE EXISTS:
+       Excludes known false positives from SpotBugs analysis. Every exclusion
+       must be documented with a justification.
+
+     POLICY:
+       - Prefer @SuppressFBWarnings annotations over entries here
+       - Only add entries here for patterns that apply across the codebase
+       - Every entry must have a comment explaining why
+     ============================================================================= -->
+<FindBugsFilter>
+    <!-- Exclude test classes from certain performance checks -->
+    <Match>
+        <Source name="~.*Test\.java"/>
+        <Bug pattern="URF_UNREAD_FIELD"/>
+    </Match>
+
+    <!-- Exclude generated code (if any annotation processors are used) -->
+    <Match>
+        <Source name="~.*Generated.*\.java"/>
+    </Match>
+</FindBugsFilter>

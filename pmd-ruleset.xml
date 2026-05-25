@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<!-- =============================================================================
+     pmd-ruleset.xml — PMD Custom Ruleset
+     =============================================================================
+     WHY THIS FILE EXISTS:
+       PMD is the Java equivalent of Roslynator.Analyzers. This ruleset enables
+       all major categories with documented exclusions for rules that conflict
+       with the project's coding style or produce too many false positives.
+
+     CATEGORIES:
+       - bestpractices: general Java best practices
+       - codestyle: naming, formatting, structure
+       - design: class design, complexity, coupling
+       - errorprone: common bug patterns
+       - multithreading: concurrency issues
+       - performance: efficiency concerns
+       - security: potential vulnerabilities
+     ============================================================================= -->
+<ruleset name="Java RDD Ruleset"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+
+    <description>Custom PMD ruleset for the Java DevSecOps template</description>
+
+    <!-- Best Practices -->
+    <rule ref="category/java/bestpractices.xml"/>
+
+    <!-- Code Style -->
+    <rule ref="category/java/codestyle.xml">
+        <!-- We use 4-space indentation, short variables are OK in lambdas -->
+        <exclude name="ShortVariable"/>
+        <exclude name="LongVariable"/>
+        <!-- Conflicts with builder pattern -->
+        <exclude name="MethodArgumentCouldBeFinal"/>
+        <exclude name="LocalVariableCouldBeFinal"/>
+        <!-- We allow static imports for test assertions -->
+        <exclude name="TooManyStaticImports"/>
+        <!-- Conflicts with records and modern Java style -->
+        <exclude name="AtLeastOneConstructor"/>
+        <!-- Allow short class names -->
+        <exclude name="ShortClassName"/>
+        <!-- On by default but noisy for DTOs -->
+        <exclude name="CommentDefaultAccessModifier"/>
+    </rule>
+
+    <!-- Design -->
+    <rule ref="category/java/design.xml">
+        <!-- Relaxed for test classes -->
+        <exclude name="TooManyMethods"/>
+        <!-- Modern Java uses sealed types -->
+        <exclude name="ExcessiveImports"/>
+        <!-- Requires explicit package configuration; not applicable to template -->
+        <exclude name="LoosePackageCoupling"/>
+    </rule>
+
+    <!-- Error Prone -->
+    <rule ref="category/java/errorprone.xml"/>
+
+    <!-- Multithreading -->
+    <rule ref="category/java/multithreading.xml"/>
+
+    <!-- Performance -->
+    <rule ref="category/java/performance.xml"/>
+
+    <!-- Security -->
+    <rule ref="category/java/security.xml"/>
+</ruleset>
