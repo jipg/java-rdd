@@ -1,0 +1,76 @@
+# =============================================================================
+# dependabot.yml — Automated Dependency Update Configuration
+# =============================================================================
+#
+# WHY THIS FILE EXISTS:
+#   Dependabot automatically creates PRs to update outdated or vulnerable
+#   dependencies. This is a critical supply chain security control.
+#
+# HOW IT WORKS WITH MAVEN:
+#   Dependabot detects pom.xml files and updates dependency versions.
+#   It also monitors GitHub Actions for outdated action versions.
+# =============================================================================
+
+version: 2
+
+updates:
+  # ===========================================================================
+  # Maven Dependencies (Java packages)
+  # ===========================================================================
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Bogota"
+    groups:
+      testing:
+        patterns:
+          - "org.junit*"
+          - "org.assertj*"
+          - "org.jacoco*"
+        update-types:
+          - "minor"
+          - "patch"
+      analysis:
+        patterns:
+          - "com.github.spotbugs*"
+          - "com.h3xstream.findsecbugs*"
+          - "com.puppycrawl.tools*"
+        update-types:
+          - "minor"
+          - "patch"
+      owasp:
+        patterns:
+          - "org.owasp*"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "bugfix"
+    commit-message:
+      prefix: "build(deps)"
+    reviewers:
+      - "jipg"
+
+  # ===========================================================================
+  # GitHub Actions
+  # ===========================================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Bogota"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "bugfix"
+    commit-message:
+      prefix: "ci(deps)"
+    reviewers:
+      - "jipg"
