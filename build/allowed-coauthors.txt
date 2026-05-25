@@ -1,0 +1,5 @@
+# One normalized "name <email>" entry per line.
+# Leave this file without human entries to ban all co-authors in this repository.
+#
+# Example:
+# jane doe <jane.doe@example.com>
