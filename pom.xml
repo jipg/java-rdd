@@ -57,7 +57,7 @@
 
         <!-- Dependency versions (equivalent to Directory.Packages.props) -->
         <junit-bom.version>5.11.4</junit-bom.version>
-        <assertj.version>3.27.3</assertj.version>
+        <assertj.version>3.27.7</assertj.version>
 
         <!-- Plugin versions -->
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
@@ -68,7 +68,7 @@
         <maven-pmd-plugin.version>3.26.0</maven-pmd-plugin.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
         <checkstyle.version>10.21.4</checkstyle.version>
-        <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
+        <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
         <dependency-check-maven.version>11.1.1</dependency-check-maven.version>
         <cyclonedx-maven-plugin.version>2.9.1</cyclonedx-maven-plugin.version>
 
