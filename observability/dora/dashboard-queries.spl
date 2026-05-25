@@ -1,0 +1,196 @@
+| ============================================================================
+| DORA Dashboard — Splunk SPL Queries (Versioned)
+| ============================================================================
+|
+| WHY THIS FILE EXISTS:
+|   Dashboard definitions as code ensure:
+|   1. Dashboard changes are reviewed in PRs (not modified silently in Splunk)
+|   2. Dashboards can be recreated from scratch in any Splunk instance
+|   3. Query logic is documented alongside the event schema
+|   4. Changes are traceable (who changed what query, when, why)
+|
+| HOW TO USE:
+|   1. Copy each query block into a Splunk dashboard panel
+|   2. Use the Splunk Dashboard Studio or Classic Dashboard editor
+|   3. Set time range per panel or use a global time picker
+|   4. Adjust the index name if your org uses a different index
+|
+| PREREQUISITES:
+|   - Splunk index 'dora_events' exists and receives deploy events
+|   - Deploy tracker workflow is emitting events via HEC
+|   - Events match the schema in event-schema.json
+|
+| DASHBOARD LAYOUT (suggested):
+|   Row 1: KPI tiles (DF, LT, CFR, MTTR) with sparklines
+|   Row 2: Deployment Frequency over time + Lead Time trend
+|   Row 3: Change Failure Rate trend + Failure details
+|   Row 4: Service-level breakdown
+| ============================================================================
+
+
+| ============================================================================
+| PANEL 1: Deployment Frequency (last 30 days)
+| ============================================================================
+| Counts production deploys per day. The sparkline shows the trend.
+| Elite threshold: multiple deploys per day (on-demand).
+| ============================================================================
+
+index=dora_events event_type=deploy deploy_environment=production
+| timechart span=1d count AS deploys
+| eval dora_level=case(
+    deploys >= 2, "Elite",
+    deploys >= 1, "High",
+    deploys > 0, "Medium",
+    true(), "Low")
+
+
+| ============================================================================
+| PANEL 2: Deployment Frequency KPI (single value)
+| ============================================================================
+
+index=dora_events event_type=deploy deploy_environment=production earliest=-30d
+| stats count AS total_deploys
+| eval deploys_per_day=round(total_deploys/30, 2)
+| eval deploys_per_week=round(total_deploys/4, 2)
+| eval level=case(
+    deploys_per_day >= 1, "Elite: On-demand",
+    deploys_per_week >= 1, "High: Daily-Weekly",
+    total_deploys >= 1, "Medium: Monthly",
+    true(), "Low: < Monthly")
+
+
+| ============================================================================
+| PANEL 3: Lead Time for Changes (last 30 days)
+| ============================================================================
+| Uses the pre-computed dora_lead_time_ms field.
+| Lead Time = time from first commit to production deploy.
+| Elite threshold: < 1 hour (3,600,000 ms).
+| ============================================================================
+
+index=dora_events event_type=deploy deploy_environment=production deploy_status=success dora_lead_time_ms>0 earliest=-30d
+| eval lead_time_hours=round(dora_lead_time_ms/3600000, 2)
+| timechart span=1d avg(lead_time_hours) AS avg_lead_time_hours
+| eval dora_level=case(
+    avg_lead_time_hours < 1, "Elite",
+    avg_lead_time_hours < 24, "High",
+    avg_lead_time_hours < 168, "Medium",
+    true(), "Low")
+
+
+| ============================================================================
+| PANEL 4: Lead Time KPI (single value — P50 and P95)
+| ============================================================================
+
+index=dora_events event_type=deploy deploy_environment=production deploy_status=success dora_lead_time_ms>0 earliest=-30d
+| eval lead_time_hours=dora_lead_time_ms/3600000
+| stats
+    median(lead_time_hours) AS p50_hours,
+    perc95(lead_time_hours) AS p95_hours,
+    avg(lead_time_hours) AS avg_hours
+| eval p50_display=round(p50_hours, 1)." hours"
+| eval p95_display=round(p95_hours, 1)." hours"
+| eval level=case(
+    p50_hours < 1, "Elite: < 1 hour",
+    p50_hours < 24, "High: < 1 day",
+    p50_hours < 168, "Medium: < 1 week",
+    true(), "Low: > 1 week")
+
+
+| ============================================================================
+| PANEL 5: Change Failure Rate (last 30 days)
+| ============================================================================
+| CFR = deploys causing failure / total deploys.
+| Uses dora_is_failure (pre-computed: true for failure or rollback).
+| Elite threshold: 0-15%.
+| ============================================================================
+
+index=dora_events event_type=deploy deploy_environment=production earliest=-30d
+| stats
+    count AS total_deploys,
+    sum(eval(if(dora_is_failure="true" OR dora_is_failure=1, 1, 0))) AS failed_deploys
+| eval cfr_percent=round((failed_deploys/total_deploys)*100, 1)
+| eval level=case(
+    cfr_percent <= 15, "Elite/High: 0-15%",
+    cfr_percent <= 30, "Medium: 16-30%",
+    cfr_percent <= 45, "Low: 31-45%",
+    true(), "Critical: > 45%")
+
+
+| ============================================================================
+| PANEL 6: Change Failure Rate trend (weekly)
+| ============================================================================
+
+index=dora_events event_type=deploy deploy_environment=production earliest=-90d
+| timechart span=1w
+    count AS total,
+    sum(eval(if(dora_is_failure="true" OR dora_is_failure=1, 1, 0))) AS failures
+| eval cfr_percent=round((failures/total)*100, 1)
+| fields _time cfr_percent total failures
+
+
+| ============================================================================
+| PANEL 7: Failed Deployments Detail
+| ============================================================================
+
+index=dora_events event_type=deploy deploy_environment=production dora_is_failure=true earliest=-30d
+| table deploy_finished_at service_domain service_name deploy_status deploy_trigger git_commit_sha git_pr_number ci_run_url ci_actor
+| sort -deploy_finished_at
+| rename
+    deploy_finished_at AS "Time",
+    service_domain AS "Domain",
+    service_name AS "Service",
+    deploy_status AS "Status",
+    deploy_trigger AS "Trigger",
+    git_commit_sha AS "Commit",
+    git_pr_number AS "PR",
+    ci_run_url AS "CI Run",
+    ci_actor AS "Actor"
+
+
+| ============================================================================
+| PANEL 8: Service-Level Breakdown
+| ============================================================================
+| Shows DORA metrics per service for multi-service repos or org-wide view.
+| ============================================================================
+
+index=dora_events event_type=deploy deploy_environment=production earliest=-30d
+| stats
+    count AS total_deploys,
+    sum(eval(if(dora_is_failure="true" OR dora_is_failure=1, 1, 0))) AS failed_deploys,
+    avg(dora_lead_time_ms) AS avg_lead_time_ms
+    BY service_domain, service_name
+| eval cfr_percent=round((failed_deploys/total_deploys)*100, 1)
+| eval avg_lead_time_hours=round(avg_lead_time_ms/3600000, 1)
+| sort -total_deploys
+| rename
+    service_domain AS "Domain",
+    service_name AS "Service",
+    total_deploys AS "Deploys",
+    failed_deploys AS "Failures",
+    cfr_percent AS "CFR %",
+    avg_lead_time_hours AS "Avg LT (hours)"
+
+
+| ============================================================================
+| PANEL 9: DORA Scorecard (all four metrics in one view)
+| ============================================================================
+
+index=dora_events event_type=deploy deploy_environment=production earliest=-30d
+| stats
+    count AS total_deploys,
+    sum(eval(if(dora_is_failure="true" OR dora_is_failure=1, 1, 0))) AS failed_deploys,
+    avg(eval(if(deploy_status="success" AND dora_lead_time_ms>0, dora_lead_time_ms, null()))) AS avg_lead_time_ms
+| eval df_per_day=round(total_deploys/30, 2)
+| eval cfr_percent=round((failed_deploys/total_deploys)*100, 1)
+| eval lead_time_hours=round(avg_lead_time_ms/3600000, 1)
+| eval df_level=case(df_per_day >= 1, "Elite", df_per_day >= 0.25, "High", total_deploys >= 1, "Medium", true(), "Low")
+| eval cfr_level=case(cfr_percent <= 15, "Elite", cfr_percent <= 30, "Medium", true(), "Low")
+| eval lt_level=case(lead_time_hours < 1, "Elite", lead_time_hours < 24, "High", lead_time_hours < 168, "Medium", true(), "Low")
+| table df_per_day df_level lead_time_hours lt_level cfr_percent cfr_level
+| rename
+    df_per_day AS "DF (deploys/day)",
+    df_level AS "DF Level",
+    lead_time_hours AS "LT (hours)",
+    lt_level AS "LT Level",
+    cfr_percent AS "CFR %",
+    cfr_level AS "CFR Level"

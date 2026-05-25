@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jipg/java-rdd/observability/dora/event-schema.json",
+  "_comment": [
+    "=============================================================================",
+    "DORA Deploy Event Schema",
+    "=============================================================================",
+    "",
+    "WHY THIS SCHEMA EXISTS:",
+    "  Defines the contract for deploy events sent to Splunk HEC. Every deploy",
+    "  (success or failure) emits an event matching this schema. Splunk indexes",
+    "  these events and the DORA dashboard queries them to compute:",
+    "    - Deployment Frequency (DF): count of events per time period",
+    "    - Lead Time for Changes (LT): first_commit_at → deployed_at delta",
+    "    - Change Failure Rate (CFR): failed / total deploys",
+    "    - Mean Time to Recovery (MTTR): derived from incident linkage",
+    "",
+    "FIELD NAMING CONVENTION:",
+    "  snake_case for all fields. Prefixed by category:",
+    "    deploy_*   → deployment metadata",
+    "    service_*  → service identification (domain taxonomy)",
+    "    git_*      → source control metadata",
+    "    ci_*       → CI/CD pipeline metadata",
+    "    dora_*     → pre-computed DORA metric inputs",
+    "",
+    "SPLUNK INDEX:",
+    "  Events are sent to a dedicated index (e.g., 'dora_events') to isolate",
+    "  deploy telemetry from application logs. This enables retention policies",
+    "  and access controls specific to engineering metrics.",
+    "============================================================================="
+  ],
+  "title": "DORA Deploy Event",
+  "description": "Schema for deploy events emitted to Splunk HEC for DORA metrics computation",
+  "type": "object",
+  "required": [
+    "event_type",
+    "deploy_id",
+    "deploy_status",
+    "deploy_environment",
+    "deploy_started_at",
+    "deploy_finished_at",
+    "deploy_duration_ms",
+    "service_domain",
+    "service_name",
+    "git_commit_sha",
+    "git_branch",
+    "ci_run_id",
+    "ci_run_url"
+  ],
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "enum": ["deploy"],
+      "description": "Event type discriminator for Splunk queries"
+    },
+    "deploy_id": {
+      "type": "string",
+      "description": "Unique identifier for this deployment (GitHub run_id + attempt)"
+    },
+    "deploy_status": {
+      "type": "string",
+      "enum": ["success", "failure", "rollback"],
+      "description": "Final status. 'rollback' counts as failure for CFR"
+    },
+    "deploy_environment": {
+      "type": "string",
+      "enum": ["staging", "production"],
+      "description": "Target environment. Only 'production' counts for DORA"
+    },
+    "deploy_started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when deploy began"
+    },
+    "deploy_finished_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when deploy completed (success or failure)"
+    },
+    "deploy_duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total deploy duration in milliseconds"
+    },
+    "deploy_trigger": {
+      "type": "string",
+      "enum": ["push", "manual", "rollback", "hotfix", "scheduled"],
+      "description": "What triggered this deployment"
+    },
+    "service_domain": {
+      "type": "string",
+      "description": "Business domain (polizas, recaudos, siniestros)",
+      "examples": ["polizas", "recaudos", "siniestros"]
+    },
+    "service_name": {
+      "type": "string",
+      "description": "Service name within the domain",
+      "examples": ["payment-processor", "policy-engine", "claim-handler"]
+    },
+    "git_commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Full SHA of the deployed commit"
+    },
+    "git_branch": {
+      "type": "string",
+      "description": "Branch that was deployed (typically 'main')"
+    },
+    "git_release_tag": {
+      "type": "string",
+      "description": "Semantic version tag if this deploy corresponds to a release",
+      "examples": ["v1.2.3"]
+    },
+    "git_pr_number": {
+      "type": "integer",
+      "description": "PR number that introduced the changes (from squash merge)"
+    },
+    "git_first_commit_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the first commit in the PR. Used to compute Lead Time: deploy_finished_at - git_first_commit_at"
+    },
+    "ci_run_id": {
+      "type": "string",
+      "description": "GitHub Actions run ID"
+    },
+    "ci_run_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "URL to the GitHub Actions run for traceability"
+    },
+    "ci_actor": {
+      "type": "string",
+      "description": "GitHub user who triggered or approved the deploy"
+    },
+    "dora_lead_time_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Pre-computed Lead Time: deploy_finished_at - git_first_commit_at (ms). Null if first_commit_at is unavailable"
+    },
+    "dora_is_failure": {
+      "type": "boolean",
+      "description": "True if deploy_status is 'failure' or 'rollback'. Simplifies CFR queries"
+    },
+    "correlation_id": {
+      "type": "string",
+      "description": "Links this deploy to incidents/postmortems. Matches deploy_id in postmortem YAML frontmatter"
+    }
+  }
+}
