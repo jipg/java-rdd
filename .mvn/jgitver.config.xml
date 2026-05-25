@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- =============================================================================
+     jgitver.config.xml — Automated Semantic Versioning from Git Tags
+     =============================================================================
+     WHY THIS FILE EXISTS:
+       Equivalent to .NET's Versionize. jgitver reads git tags and commit
+       history to automatically compute the project version. No manual
+       version bumps needed.
+
+     HOW IT WORKS:
+       1. Developer tags a release: git tag v1.2.3
+       2. jgitver reads the tag and sets the Maven project version
+       3. Commits after the tag get a SNAPSHOT qualifier
+       4. The release workflow creates tags from conventional commits
+     ============================================================================= -->
+<configuration xmlns="http://jgitver.github.io/maven/configuration/1.1.0"
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xsi:schemaLocation="http://jgitver.github.io/maven/configuration/1.1.0 https://jgitver.github.io/maven/configuration/jgitver-configuration-v1_1_0.xsd">
+    <mavenLike>true</mavenLike>
+    <autoIncrementPatch>true</autoIncrementPatch>
+    <useCommitDistance>true</useCommitDistance>
+    <useDirty>true</useDirty>
+    <useGitCommitId>false</useGitCommitId>
+    <gitCommitIdLength>8</gitCommitIdLength>
+    <nonQualifierBranches>main,master</nonQualifierBranches>
+    <useDefaultBranchingPolicy>true</useDefaultBranchingPolicy>
+    <regexVersionTag>v([0-9]+(?:\.[0-9]+){0,2}(?:-[a-zA-Z0-9.-]+)?)</regexVersionTag>
+</configuration>
