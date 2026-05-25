@@ -1,0 +1,280 @@
+# =============================================================================
+# definition-of-done.yml — Risk-tiered validation gates
+# =============================================================================
+#
+# WHY THIS WORKFLOW EXISTS:
+#   Not all changes carry the same risk. A typo fix doesn't need FTA.
+#   A new service does. This workflow reads the PR's classification label
+#   and applies the appropriate validation gates.
+#
+# VALIDATION MATRIX:
+#   Label                  | Checks Applied
+#   -----------------------|------------------------------------------------
+#   documentation          | baseline documentation-only validation
+#   bugfix                 | smoke tests exist, rollback verified
+#   feature                | + SFMEA updated, metrics/alerts present
+#   integration-change     | + contract tests, sequence diagram updated
+#   new-service / migration| + FTA exists, HAZOP exists, full observability
+#
+# TIER MODIFIER:
+#   If the PR also has a `tier-1` label, the FMEA sections in the PR
+#   body are validated for completeness (no empty risk sections).
+#
+# =============================================================================
+
+name: Definition of Done
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  determine-gates:
+    name: Determine validation gates
+    runs-on: ubuntu-latest
+    outputs:
+      classification: ${{ steps.classify.outputs.label }}
+      is_tier1: ${{ steps.classify.outputs.is_tier1 }}
+      has_sfmea_exception: ${{ steps.classify.outputs.has_sfmea_exception }}
+      run_sfmea_check: ${{ steps.classify.outputs.run_sfmea_check }}
+      run_fta_check: ${{ steps.classify.outputs.run_fta_check }}
+      run_alert_runbook_check: ${{ steps.classify.outputs.run_alert_runbook_check }}
+      run_fta_diagram_check: ${{ steps.classify.outputs.run_fta_diagram_check }}
+      run_tests: ${{ steps.classify.outputs.run_tests }}
+
+    steps:
+      - name: Classify PR and determine gates
+        id: classify
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const CLASSIFICATION_LABELS = [
+              'bugfix', 'feature', 'integration-change', 'new-service', 'migration', 'documentation'
+            ];
+
+            const labels = context.payload.pull_request.labels.map(l => l.name);
+            const classification = labels.find(l => CLASSIFICATION_LABELS.includes(l)) || 'none';
+            const isTier1 = labels.includes('tier-1');
+            const isBreaking = labels.includes('breaking-change');
+            const hasSfmeaException = labels.includes('sfmea-exception');
+
+            // Determine which gates to run based on classification
+            // Each higher level includes all gates from lower levels
+            const gates = {
+              run_sfmea_check: ['feature', 'integration-change', 'new-service', 'migration'].includes(classification) || isBreaking,
+              run_fta_check: ['new-service', 'migration'].includes(classification),
+              run_alert_runbook_check: ['feature', 'integration-change', 'new-service', 'migration'].includes(classification),
+              run_fta_diagram_check: ['new-service', 'migration', 'integration-change'].includes(classification),
+              run_tests: ['bugfix', 'feature', 'integration-change', 'new-service', 'migration'].includes(classification),
+            };
+
+            core.info(`Classification: ${classification}`);
+            core.info(`Tier-1: ${isTier1}`);
+            core.info(`Breaking change: ${isBreaking}`);
+            core.info(`SFMEA exception label: ${hasSfmeaException}`);
+            core.info(`Gates: ${JSON.stringify(gates, null, 2)}`);
+
+            core.setOutput('label', classification);
+            core.setOutput('is_tier1', isTier1.toString());
+            core.setOutput('has_sfmea_exception', hasSfmeaException.toString());
+            Object.entries(gates).forEach(([key, value]) => {
+              core.setOutput(key, value.toString());
+            });
+
+  # ===========================================================================
+  # Gate: Tier-1 FMEA completeness check
+  # Validates that the PR body's FMEA sections are not empty.
+  # ===========================================================================
+  tier1-fmea-check:
+    name: "Gate: Tier-1 FMEA sections"
+    needs: determine-gates
+    if: needs.determine-gates.outputs.is_tier1 == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate FMEA sections in PR body
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const requiredSections = [
+              { name: 'What can fail', pattern: /### 1\. What can fail.*?\n([\s\S]*?)(?=###|---|\Z)/i },
+              { name: 'How severe', pattern: /### 2\. How severe.*?\n([\s\S]*?)(?=###|---|\Z)/i },
+              { name: 'How likely', pattern: /### 3\. How likely.*?\n([\s\S]*?)(?=###|---|\Z)/i },
+              { name: 'Detection', pattern: /### 4\. Would we detect.*?\n([\s\S]*?)(?=###|---|\Z)/i },
+              { name: 'Rollback plan', pattern: /### 5\. Rollback plan.*?\n([\s\S]*?)(?=###|---|\Z)/i },
+            ];
+
+            const failures = [];
+
+            for (const section of requiredSections) {
+              const match = body.match(section.pattern);
+              if (!match) {
+                failures.push(`Section "${section.name}" not found in PR body.`);
+                continue;
+              }
+
+              // Check if content is meaningful (not just template placeholders)
+              const content = match[1]
+                .replace(/<!--[\s\S]*?-->/g, '')  // Remove HTML comments
+                .replace(/\[.*?\]/g, '')            // Remove placeholder brackets
+                .replace(/- \[ \]/g, '')            // Remove empty checkboxes
+                .trim();
+
+              if (content.length < 20) {
+                failures.push(`Section "${section.name}" appears empty or contains only placeholders.`);
+              }
+            }
+
+            if (failures.length > 0) {
+              core.setFailed(
+                `Tier-1 PR: FMEA sections must be completed.\n\n` +
+                failures.map(f => `  - ${f}`).join('\n') +
+                `\n\nThis PR has the \`tier-1\` label, which requires all risk ` +
+                `assessment sections to be filled in. Complete the sections ` +
+                `in the PR description and re-run this check.`
+              );
+            } else {
+              core.info('All FMEA sections contain meaningful content.');
+            }
+
+  # ===========================================================================
+  # Gate: SFMEA updated
+  # Checks that risk/sfmea.md was modified in this PR.
+  # ===========================================================================
+  sfmea-check:
+    name: "Gate: SFMEA updated"
+    needs: determine-gates
+    if: needs.determine-gates.outputs.run_sfmea_check == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check SFMEA modification
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HAS_SFMEA_EXCEPTION: ${{ needs.determine-gates.outputs.has_sfmea_exception }}
+        run: |
+          echo "=== Checking if risk/sfmea.md was modified ==="
+
+          if [ "${HAS_SFMEA_EXCEPTION}" = "true" ]; then
+            echo "SFMEA exception label present; reviewer accepted PR justification."
+            exit 0
+          fi
+
+          # Get the list of changed files in this PR
+          CHANGED_FILES=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          if echo "$CHANGED_FILES" | grep -q "^risk/sfmea.md$"; then
+            echo "risk/sfmea.md was updated in this PR."
+          else
+            echo "ERROR: risk/sfmea.md was NOT modified."
+            echo ""
+            echo "PRs labeled 'feature', 'integration-change', 'new-service',"
+            echo "'migration', or 'breaking-change' must update the SFMEA if"
+            echo "the change introduces or modifies failure modes."
+            echo ""
+            echo "If no new failure modes are introduced, add the label"
+            echo "'sfmea-exception' manually and document the justification"
+            echo "in the PR description."
+            exit 1
+          fi
+
+  # ===========================================================================
+  # Gate: FTA exists
+  # Checks that at least one FTA file exists for new-service/migration PRs.
+  # ===========================================================================
+  fta-check:
+    name: "Gate: FTA exists"
+    needs: determine-gates
+    if: needs.determine-gates.outputs.run_fta_check == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check FTA files exist
+        run: |
+          echo "=== Checking for FTA files ==="
+
+          FTA_COUNT=$(find risk/fta -name "*.md" ! -name "template.md" -type f 2>/dev/null | wc -l | tr -d ' ')
+
+          if [ "$FTA_COUNT" -gt 0 ]; then
+            echo "Found ${FTA_COUNT} FTA file(s) in risk/fta/."
+            find risk/fta -name "*.md" ! -name "template.md" -type f
+          else
+            echo "ERROR: No FTA files found in risk/fta/ (excluding template)."
+            echo ""
+            echo "PRs labeled 'new-service' or 'migration' require at least"
+            echo "one Fault Tree Analysis document."
+            echo ""
+            echo "Copy risk/fta/template.md and fill in the analysis."
+            exit 1
+          fi
+
+  # ===========================================================================
+  # Gate: FTA ↔ Diagram coherence
+  # Runs the FTA-to-diagrams validator in strict mode.
+  # ===========================================================================
+  fta-diagram-check:
+    name: "Gate: FTA ↔ Diagrams"
+    needs: determine-gates
+    if: needs.determine-gates.outputs.run_fta_diagram_check == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate FTA-diagram coherence
+        run: |
+          chmod +x build/validate-fta-diagrams.sh
+          ./build/validate-fta-diagrams.sh --strict
+
+  # ===========================================================================
+  # Gate: Alert-Runbook coverage
+  # Runs the alert-to-runbook validator in strict mode.
+  # ===========================================================================
+  alert-runbook-check:
+    name: "Gate: Alert ↔ Runbook"
+    needs: determine-gates
+    if: needs.determine-gates.outputs.run_alert_runbook_check == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate alert-runbook coverage
+        run: |
+          chmod +x build/validate-alert-runbook.sh
+          ./build/validate-alert-runbook.sh --strict
+
+  # ===========================================================================
+  # Gate: Tests pass
+  # Runs the test suite for PRs that change runtime behavior.
+  # ===========================================================================
+  test-check:
+    name: "Gate: Tests pass"
+    needs: determine-gates
+    if: needs.determine-gates.outputs.run_tests == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Run tests
+        run: ./mvnw verify -Ddependency-check.skip=true

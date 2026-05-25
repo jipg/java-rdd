@@ -1,0 +1,74 @@
+# =============================================================================
+# require-labels.yml — Enforce mandatory PR classification labels
+# =============================================================================
+#
+# WHY THIS WORKFLOW EXISTS:
+#   Without a classification label, the definition-of-done workflow cannot
+#   determine which validation gates to apply. This workflow blocks merge
+#   until exactly one classification label is present.
+#
+#   This is the first gate in the risk-tiered validation pipeline:
+#     require-labels → definition-of-done → merge
+#
+# LABELS CHECKED:
+#   Classification (exactly one required):
+#     bugfix, feature, integration-change, new-service, migration, documentation
+#
+# =============================================================================
+
+name: Require Labels
+
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-labels:
+    name: Verify PR classification label
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check for classification label
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const CLASSIFICATION_LABELS = [
+              'bugfix',
+              'feature',
+              'integration-change',
+              'new-service',
+              'migration',
+              'documentation'
+            ];
+
+            const prLabels = context.payload.pull_request.labels.map(l => l.name);
+            const classificationLabels = prLabels.filter(l => CLASSIFICATION_LABELS.includes(l));
+
+            core.info(`PR labels: ${prLabels.join(', ') || '(none)'}`);
+            core.info(`Classification labels found: ${classificationLabels.join(', ') || '(none)'}`);
+
+            if (classificationLabels.length === 0) {
+              core.setFailed(
+                `Missing classification label.\n\n` +
+                `Every PR must have exactly ONE of these labels:\n` +
+                `  ${CLASSIFICATION_LABELS.join(', ')}\n\n` +
+                `These labels determine which CI validation gates apply.\n` +
+                `See .github/labels.yml for descriptions of each label.\n\n` +
+                `Add a label and re-run this check.`
+              );
+              return;
+            }
+
+            if (classificationLabels.length > 1) {
+              core.setFailed(
+                `Multiple classification labels found: ${classificationLabels.join(', ')}\n\n` +
+                `A PR must have exactly ONE classification label.\n` +
+                `Remove the extra label(s) and re-run this check.`
+              );
+              return;
+            }
+
+            core.info(`Classification label: ${classificationLabels[0]}`);

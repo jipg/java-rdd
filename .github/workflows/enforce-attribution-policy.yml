@@ -1,0 +1,52 @@
+# =============================================================================
+# enforce-attribution-policy.yml — Block automated authorship text in PR metadata
+# =============================================================================
+#
+# WHY THIS WORKFLOW EXISTS:
+#   Local hooks protect commits and staged content, but they cannot prevent
+#   a pull request description or title from being edited directly in GitHub.
+#   This workflow closes that gap by validating PR metadata on the server side.
+#
+# WHAT IT CHECKS:
+#   - PR title
+#   - PR body
+#
+# FAILURE MODE PREVENTED:
+#   Automated authorship wording making it into PR metadata through GitHub UI
+#   edits or direct API calls.
+#
+# =============================================================================
+
+name: Enforce Attribution Policy
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-pr-metadata:
+    name: Validate PR title and body
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          chmod +x build/check-attribution-policy.sh
+          printf '%s\n' "$PR_TITLE" > /tmp/pr-title.txt
+          ./build/check-attribution-policy.sh --file /tmp/pr-title.txt
+
+      - name: Validate PR body
+        env:
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
+        run: |
+          chmod +x build/check-attribution-policy.sh
+          printf '%s\n' "$PR_BODY" > /tmp/pr-body.txt
+          ./build/check-attribution-policy.sh --file /tmp/pr-body.txt
