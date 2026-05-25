@@ -1,0 +1,82 @@
+# =============================================================================
+# semgrep.yml — Static Application Security Testing (SAST) with Semgrep OSS
+# =============================================================================
+#
+# WHY SEMGREP INSTEAD OF CODEQL:
+#   CodeQL is GitHub's proprietary SAST tool. It is free for public repos
+#   but requires GitHub Advanced Security (GHAS) for private repos at
+#   $49/committer/month. For an organization with mixed stack and budget
+#   constraints, this is a significant cost.
+#
+#   Semgrep OSS is the open-source alternative:
+#   - License: LGPL 2.1 (open source)
+#   - Cost: $0 (the OSS engine is fully free; Semgrep Cloud is the paid tier)
+#   - Supports C#, Java, Python, JavaScript, Go, and 30+ languages
+#   - Community rules cover OWASP Top 10, CWE, and best practices
+#   - Custom rules can be written in YAML (much simpler than CodeQL's QL)
+#   - Runs locally and in CI without any cloud dependency
+#
+# DEFENSE IN DEPTH:
+#   Semgrep complements (not replaces) the static analysis already in place:
+#
+#   | Tool                   | When       | What it catches               |
+#   |------------------------|------------|-------------------------------|
+#   | SpotBugs + FindSecBugs | Build time | Java-specific bugs, OWASP     |
+#   | PMD                    | Build time | Code quality, best practices  |
+#   | Checkstyle             | Build time | Style, naming conventions     |
+#   | Semgrep OSS            | CI (PR)    | Cross-language patterns, custom|
+#   | Trivy                  | CI (PR)    | Dependencies, containers, IaC |
+#
+#   Each tool has overlapping but distinct rule sets, providing layered
+#   security aligned with SFMEA defense-in-depth principles.
+#
+# =============================================================================
+
+name: Semgrep SAST
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write  # Required for SARIF upload to GitHub Security tab
+
+jobs:
+  semgrep:
+    name: Static analysis (Semgrep OSS)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run Semgrep with community rules
+        run: |
+          semgrep scan \
+            --config "p/default" \
+            --config "p/owasp-top-ten" \
+            --config "p/cwe-top-25" \
+            --config "p/java" \
+            --sarif \
+            --output semgrep-results.sarif \
+            --error \
+            --verbose
+        env:
+          # No SEMGREP_APP_TOKEN needed for OSS engine
+          # Rules are fetched from the public Semgrep Registry
+          SEMGREP_SEND_METRICS: "off"
+
+      # Upload results to GitHub Security tab (free feature)
+      # This provides a unified view of all security findings
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep-results.sarif
+          category: "semgrep"

@@ -1,0 +1,108 @@
+# =============================================================================
+# trivy.yml — Vulnerability Scanning with Trivy
+# =============================================================================
+#
+# WHY TRIVY:
+#   Trivy is a comprehensive vulnerability scanner that covers areas the
+#   build-time analyzers and Semgrep don't:
+#
+#   | Scan Target      | What it checks                                    |
+#   |------------------|---------------------------------------------------|
+#   | Filesystem (fs)  | Maven packages for known CVEs (NVD, GitHub Advisory)|
+#   | Container images | Base image vulnerabilities, misconfigurations      |
+#   | IaC files        | Terraform, CloudFormation, Dockerfile misconfigs   |
+#   | SBOM             | Can generate and scan SBOMs                        |
+#
+# TOOL INFO:
+#   - License: Apache 2.0 (open source)
+#   - Cost: $0
+#   - Repo: https://github.com/aquasecurity/trivy
+#   - Maintained by Aqua Security with active community
+#   - Self-hostable, no cloud dependency
+#
+# COMPLEMENTARY TO OWASP Dependency-Check:
+#   OWASP Dependency-Check (already enabled in pom.xml) checks during
+#   `mvn verify`. Trivy provides a second layer:
+#   - Uses multiple vulnerability databases (NVD, GitHub, Alpine, etc.)
+#   - Catches vulnerabilities Dependency-Check might miss
+#   - Scans beyond Maven (Docker, IaC, OS packages)
+#   - Provides SARIF output for GitHub Security tab integration
+#
+# =============================================================================
+
+name: Trivy Vulnerability Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly scan to catch newly disclosed CVEs in existing dependencies
+    - cron: "0 14 * * 1"  # Mondays 2:00 PM UTC (9:00 AM Bogota)
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write  # Required for SARIF upload
+
+jobs:
+  trivy-fs:
+    name: Scan filesystem for vulnerabilities
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-fs-results.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM"
+          # Exit code 1 on CRITICAL or HIGH findings to fail the build
+          exit-code: "1"
+          # Ignore unfixed vulnerabilities (no patch available yet)
+          ignore-unfixed: true
+
+      - name: Upload Trivy FS results to GitHub Security
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: "trivy-filesystem"
+
+  # ===========================================================================
+  # IaC Scan
+  # Checks Dockerfiles, Terraform, CloudFormation, and other IaC files
+  # for misconfigurations. Enabled now to catch Dockerfile issues when
+  # containers are added in future layers.
+  # ===========================================================================
+  trivy-config:
+    name: Scan IaC for misconfigurations
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run Trivy config scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: "config"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-config-results.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM"
+          # Warning only for config issues (don't block PRs yet)
+          exit-code: "0"
+
+      - name: Upload Trivy Config results to GitHub Security
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-config-results.sarif
+          category: "trivy-config"
