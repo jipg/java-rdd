@@ -1,0 +1,148 @@
+# =============================================================================
+# labels.yml — GitHub label definitions for risk-tiered PR validation
+# =============================================================================
+#
+# WHY THIS FILE EXISTS:
+#   Labels are not just organizational metadata — they are CI triggers.
+#   The require-labels workflow blocks merge if no classification label is
+#   present. The definition-of-done workflow reads the label to determine
+#   which validation gates to apply.
+#
+# HOW TO SYNC:
+#   Use a label sync action (e.g., EndBug/label-sync) or the gh CLI:
+#     gh label create "bugfix" --description "..." --color "..."
+#
+# LABEL CATEGORIES:
+#   1. Change Classification (REQUIRED — exactly one per PR)
+#   2. Risk Tier / Impact (strongly recommended; required by policy for
+#      critical-path, compatibility-sensitive, or high-blast-radius changes)
+#   3. Risk Artifacts (informational, set by CI or reviewer)
+# =============================================================================
+
+# =============================================================================
+# Change Classification Labels (REQUIRED — one per PR)
+# These describe the nature of the change, not its full operational risk.
+# They determine the baseline CI validation gates to apply.
+# =============================================================================
+
+- name: "bugfix"
+  description: "Bug fix — requires smoke test and rollback verification"
+  color: "d73a4a"  # red
+
+- name: "feature"
+  description: "New feature — requires SFMEA update, metrics/alerts, tests"
+  color: "0075ca"  # blue
+
+- name: "integration-change"
+  description: "Integration change — requires contract tests, sequence diagram update"
+  color: "a2eeef"  # teal
+
+- name: "new-service"
+  description: "New service/migration — requires FTA, HAZOP, full observability"
+  color: "7057ff"  # purple
+
+- name: "migration"
+  description: "Data/infrastructure migration — requires FTA, HAZOP, rollback plan"
+  color: "e4e669"  # yellow
+
+- name: "documentation"
+  description: "Documentation-only change — baseline validation without product-change gates"
+  color: "0075ca"  # blue
+
+# =============================================================================
+# Risk Tier Labels (strongly recommended)
+# These indicate the business criticality and impact surface of the change.
+# They complement, rather than replace, the change classification labels.
+# tier-1 PRs with empty FMEA sections in the PR template are blocked.
+# =============================================================================
+
+- name: "tier-1"
+  description: "Critical path — strictest validation (empty FMEA sections block merge)"
+  color: "b60205"  # dark red
+
+- name: "tier-2"
+  description: "Important service — standard validation gates"
+  color: "e99695"  # light red
+
+- name: "tier-3"
+  description: "Standard service — minimal validation gates"
+  color: "c5def5"  # light blue
+
+# =============================================================================
+# Breaking Change Label
+# Triggers additional SFMEA validation and semver major bump.
+# =============================================================================
+
+- name: "breaking-change"
+  description: "Breaking change — SFMEA update mandatory, triggers major version bump"
+  color: "000000"  # black
+
+# =============================================================================
+# Risk Artifact Labels (informational — set by CI or reviewers)
+# =============================================================================
+
+- name: "sfmea-exception"
+  description: "SFMEA change is waived for this PR; justification is documented in the PR body"
+  color: "0e8a16"  # green
+
+- name: "fta-required"
+  description: "This change requires a Fault Tree Analysis"
+  color: "fbca04"  # yellow
+
+- name: "runbook-required"
+  description: "This change requires a new or updated runbook"
+  color: "fbca04"  # yellow
+
+- name: "adr-included"
+  description: "This PR includes an Architecture Decision Record"
+  color: "0e8a16"  # green
+
+# =============================================================================
+# Label Usage Guide
+# These examples are normative guidance for authors and reviewers.
+# =============================================================================
+#
+# CHANGE TYPE LABELS
+#   bugfix:
+#     Use when restoring intended behavior without introducing a new capability.
+#     Cases: null-reference fix, retry bug, validation correction.
+#   feature:
+#     Use when adding net-new user-facing or operator-facing capability.
+#     Cases: new endpoint, new dashboard, new automation path.
+#   integration-change:
+#     Use when changing contracts or message flow between systems.
+#     Cases: webhook schema change, queue consumer change, external API contract update.
+#   new-service:
+#     Use when introducing a separately deployable runtime component.
+#     Cases: new worker, new API, new batch processor, new background daemon.
+#   migration:
+#     Use when changing data, infrastructure, or rollout state in a way that needs rollback planning.
+#     Cases: backfill, schema migration, secret rotation rollout, storage move.
+#   documentation:
+#     Use when the PR only changes explanatory or governance material and does not change runtime behavior.
+#     Cases: README update, ADR wording, operational guide, architecture note.
+#
+# RISK / IMPACT LABELS
+#   tier-1:
+#     Use for critical-path or customer-impacting systems where failure is severe.
+#     Cases: authentication, payments, claim issuance, production routing.
+#   tier-2:
+#     Use for important systems with meaningful operational impact but lower blast radius.
+#     Cases: internal operations APIs, reporting pipelines, support tooling.
+#   tier-3:
+#     Use for standard or isolated systems with limited blast radius.
+#     Cases: non-critical admin UI, low-risk docs automation, sandbox tooling.
+#   breaking-change:
+#     Use when compatibility, rollout safety, or downstream contracts change.
+#     Cases: response shape change, removed field, incompatible config format.
+#
+# RISK ARTIFACT LABELS
+#   sfmea-exception:
+#     Use only when SFMEA would normally be required but the PR does not introduce a new application failure mode.
+#     Requirement: explain the exception in the PR body.
+#   fta-required:
+#     Use when the change introduces a new top-level failure path that needs explicit fault-tree analysis.
+#   runbook-required:
+#     Use when the change creates or modifies an alert, response path, or operator action.
+#   adr-included:
+#     Use when the PR contains an ADR that documents an architectural decision.
