@@ -1,0 +1,62 @@
+###############################################################################
+# Set default behavior to automatically normalize line endings
+###############################################################################
+* text=auto
+
+###############################################################################
+# Source code - force LF
+###############################################################################
+*.java text diff=java
+*.properties text
+*.xml text
+*.json text
+*.yaml text
+*.yml text
+*.md text
+*.txt text
+*.config text
+*.gradle text
+*.kts text
+*.sh text eol=lf
+
+###############################################################################
+# Maven / build files
+###############################################################################
+*.pom text
+pom.xml text
+mvnw text eol=lf
+
+###############################################################################
+# Windows-specific files - force CRLF
+###############################################################################
+*.cmd text eol=crlf
+*.bat text eol=crlf
+mvnw.cmd text eol=crlf
+
+###############################################################################
+# Shell scripts - force LF
+###############################################################################
+*.sh text eol=lf
+*.bash text eol=lf
+
+###############################################################################
+# Binary files - no normalization
+###############################################################################
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.jar binary
+*.war binary
+*.ear binary
+*.class binary
+*.zip binary
+*.7z binary
+*.gz binary
+*.tar binary
+*.pfx binary

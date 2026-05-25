@@ -1,0 +1,59 @@
+## Build results
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+
+## Maven
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+## IDE — IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+## IDE — Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+## IDE — VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+## IDE — NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+## OS files
+.DS_Store
+Thumbs.db
+
+## SpotBugs
+spotbugsXml.xml
+
+## JaCoCo
+jacoco.exec
+
+.claude
+.lagos
