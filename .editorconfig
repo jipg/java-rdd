@@ -1,0 +1,72 @@
+# =============================================================================
+# .editorconfig — Single Source of Truth for Code Style
+# =============================================================================
+#
+# WHY THIS FILE EXISTS:
+#   This file defines code style rules for the repository. It is consumed
+#   by IntelliJ IDEA, Eclipse, VS Code, and other editors. For Java-specific
+#   style enforcement at build time, Checkstyle (checkstyle.xml) is the
+#   primary tool, as Java has no built-in equivalent to .NET's
+#   EnforceCodeStyleInBuild.
+#
+# =============================================================================
+
+# This is the top-level .editorconfig; stop searching in parent directories.
+root = true
+
+# =============================================================================
+# Global Settings — Apply to ALL file types
+# =============================================================================
+[*]
+indent_style = space
+indent_size = 4
+tab_width = 4
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# -----------------------------------------------------------------------------
+# XML, JSON, YAML — Use 2-space indentation for readability
+# -----------------------------------------------------------------------------
+[*.{xml,pom,config}]
+indent_size = 2
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+# -----------------------------------------------------------------------------
+# Markdown — Trailing whitespace is significant (line breaks)
+# -----------------------------------------------------------------------------
+[*.md]
+trim_trailing_whitespace = false
+
+# =============================================================================
+# Java Files
+# =============================================================================
+[*.java]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# =============================================================================
+# Properties Files
+# =============================================================================
+[*.properties]
+indent_style = space
+indent_size = 4
+charset = utf-8
+
+# =============================================================================
+# Shell Scripts
+# =============================================================================
+[*.sh]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+
+# =============================================================================
+# Batch Files
+# =============================================================================
+[*.{cmd,bat}]
+end_of_line = crlf
