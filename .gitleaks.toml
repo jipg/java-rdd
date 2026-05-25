@@ -1,0 +1,91 @@
+# =============================================================================
+# .gitleaks.toml — Secret Detection Configuration
+# =============================================================================
+#
+# WHY THIS FILE EXISTS:
+#   Gitleaks scans commits for accidentally committed secrets (API keys,
+#   passwords, tokens, private keys, connection strings). Secrets in version
+#   control are a critical supply chain risk because:
+#   1. They persist in git history even after deletion
+#   2. They can be harvested by anyone with repo access
+#   3. They often grant access to production systems
+#
+# TOOL INFO:
+#   - License: MIT (open source)
+#   - Cost: Free
+#   - Repo: https://github.com/gitleaks/gitleaks
+# =============================================================================
+
+title = "Gitleaks Configuration for Java Template"
+
+# =============================================================================
+# Global Allowlist
+# =============================================================================
+[allowlist]
+  description = "Global allowlist for false positives"
+
+  paths = [
+    '''\.gitleaks\.toml$''',
+    '''docs/security/.*\.md$''',
+    '''risk/.*\.md$''',
+    '''\.github/workflows/.*\.yml$''',
+  ]
+
+  regexes = [
+    '''EXAMPLE_.*''',
+    '''PLACEHOLDER_.*''',
+    '''your[-_]?api[-_]?key[-_]?here''',
+    '''\{\{.*\}\}''',
+  ]
+
+# =============================================================================
+# Custom Rules
+# =============================================================================
+
+# Detect JDBC connection strings with embedded passwords
+[[rules]]
+  id = "jdbc-connection-string"
+  description = "Detects JDBC connection strings with embedded passwords"
+  regex = '''(?i)jdbc:[a-z]+://[^?]+\?.*password=[^&\s]{8,}'''
+  keywords = ["jdbc", "password"]
+  tags = ["java", "jdbc", "connection-string"]
+
+  [rules.allowlist]
+    paths = ['''\.md$''', '''template''', '''example''', '''sample''']
+    regexes = ['''password=\{.*\}''', '''password=\$\{.*\}''']
+
+# Detect passwords in application.properties/application.yml
+[[rules]]
+  id = "spring-password-property"
+  description = "Detects passwords in Spring configuration files"
+  regex = '''(?i)(password|secret|token|api[_-]?key)\s*[=:]\s*[^\s$\{]{8,}'''
+  keywords = ["password", "secret", "token", "api_key", "apikey"]
+  tags = ["java", "spring", "configuration"]
+
+  [rules.allowlist]
+    paths = ['''\.md$''', '''template''', '''example''', '''sample''']
+    regexes = ['''=\$\{.*\}''', '''=\{.*\}''', '''=changeme''', '''=your-.*-here''']
+
+# Detect Azure Storage connection strings
+[[rules]]
+  id = "azure-storage-key"
+  description = "Detects Azure Storage account keys"
+  regex = '''AccountKey=[A-Za-z0-9+/=]{44,}'''
+  keywords = ["accountkey"]
+  tags = ["azure", "storage"]
+
+# Detect Dynatrace API tokens
+[[rules]]
+  id = "dynatrace-token"
+  description = "Detects Dynatrace API tokens"
+  regex = '''dt0[a-zA-Z]{1}\d{2}\.[A-Z0-9]{24}\.[A-Z0-9]{64}'''
+  keywords = ["dt0"]
+  tags = ["dynatrace", "observability"]
+
+# Detect Splunk HEC tokens (typically UUIDs)
+[[rules]]
+  id = "splunk-hec-token"
+  description = "Detects Splunk HTTP Event Collector tokens"
+  regex = '''(?i)(splunk[_-]?hec[_-]?token|hec[_-]?token)\s*[=:]\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'''
+  keywords = ["hec_token", "hec-token", "splunk"]
+  tags = ["splunk", "observability"]
