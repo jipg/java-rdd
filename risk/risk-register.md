@@ -1,4 +1,4 @@
-# Risk Register — {{dominio}}.{{servicio}}
+# Risk Register — example.task-api
 
 <!--
   =============================================================================
@@ -36,16 +36,23 @@
 
 | ID | Risk Description | Category | Source | S | O | D | RPN | AP | Status | Owner | Last Review |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| R-001 | [risk description] | [category] | [SFMEA FM-xxx / FTA / HAZOP / Postmortem] | - | - | - | - | - | Open | [owner] | YYYY-MM-DD |
+| R-001 | No authentication or authorization — any caller can read, modify, or delete all tasks | Security | SFMEA FM-001 / FTA task-api-unauthenticated-access / HAZOP H-001 | 9 | 6 | 8 | 432 | Critical | Open | team | 2026-05-28 |
+| R-002 | `GET /tasks` returns unbounded result set — causes OOM or extreme latency as table grows | Performance | SFMEA FM-002 / FTA task-list-unbounded / HAZOP H-003 | 6 | 5 | 7 | 210 | Critical | Open | team | 2026-05-28 |
+| R-003 | Permanent hard delete with no soft-delete or audit trail — deleted tasks are unrecoverable | Reliability | SFMEA FM-004 / HAZOP H-005 | 7 | 3 | 9 | 189 | High | Open | team | 2026-05-28 |
+| R-004 | Non-atomic read-modify-write in `PUT /tasks/{id}` — concurrent updates silently overwrite each other | Reliability | SFMEA FM-003 / HAZOP H-004 | 5 | 4 | 8 | 160 | High | Open | team | 2026-05-28 |
+| R-005 | Error responses expose internal DB details (SQL state, table names, Hibernate messages) | Security | SFMEA FM-006 / HAZOP H-006 | 4 | 5 | 7 | 140 | High | Open | team | 2026-05-28 |
+| R-006 | No input validation on `TaskRequest` — null or blank `title` reaches DB layer and returns 500 | Reliability | SFMEA FM-005 / HAZOP H-002 | 5 | 6 | 4 | 120 | High | Open | team | 2026-05-28 |
+| R-007 | DB connection pool exhaustion under sustained load — all endpoints return 503 | Performance | SFMEA FM-007 / HAZOP H-007 | 7 | 4 | 3 | 84 | Medium | Open | team | 2026-05-28 |
+| R-008 | PostgreSQL unavailable — total service outage with no health probe or retry | Reliability | SFMEA FM-008 / HAZOP H-009 | 9 | 3 | 2 | 54 | Medium | Open | team | 2026-05-28 |
 
 ## Closed Risks
 
 | ID | Risk Description | Category | Resolution | Closed Date |
 |---|---|---|---|---|
-| - | - | - | - | - |
+| — | — | — | — | — |
 
 ## Risk Trend
 
 | Quarter | Critical | High | Medium | Low | Total |
 |---|---|---|---|---|---|
-| YYYY-QN | 0 | 0 | 0 | 0 | 0 |
+| 2026-Q2 | 2 | 4 | 2 | 0 | 8 |

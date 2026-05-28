@@ -71,6 +71,7 @@
         <jacoco-maven-plugin.version>0.8.12</jacoco-maven-plugin.version>
         <dependency-check-maven.version>11.1.1</dependency-check-maven.version>
         <cyclonedx-maven-plugin.version>2.9.1</cyclonedx-maven-plugin.version>
+        <spring-boot.version>4.0.6</spring-boot.version>
 
         <!-- Analysis control: set to true to skip specific analyzers per module -->
         <spotbugs.skip>false</spotbugs.skip>
@@ -100,6 +101,15 @@
                 <artifactId>assertj-core</artifactId>
                 <version>${assertj.version}</version>
                 <scope>test</scope>
+            </dependency>
+
+            <!-- Spring Boot BOM — version management for all Spring Boot starters -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -168,6 +178,7 @@
                     <artifactId>spotbugs-maven-plugin</artifactId>
                     <version>${spotbugs-maven-plugin.version}</version>
                     <configuration>
+                        <htmlOutput>false</htmlOutput>
                         <effort>Max</effort>
                         <threshold>Low</threshold>
                         <failOnError>true</failOnError>
@@ -310,6 +321,20 @@
                             <phase>verify</phase>
                             <goals>
                                 <goal>check</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- Spring Boot Maven Plugin — executable JAR packaging -->
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>repackage</goal>
                             </goals>
                         </execution>
                     </executions>
